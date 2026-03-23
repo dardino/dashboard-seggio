@@ -6,9 +6,10 @@ export interface MetricCardProps {
   value: string;
   caption?: string;
   chart?: ReactNode;
+  centered?: boolean;
 }
 
-export default function MetricCard({ title, value, caption, chart }: MetricCardProps) {
+export default function MetricCard({ title, value, caption, chart, centered = false }: MetricCardProps) {
   return (
     <Paper
       elevation={0}
@@ -20,7 +21,11 @@ export default function MetricCard({ title, value, caption, chart }: MetricCardP
         background: 'linear-gradient(145deg, #162237 0%, #10192b 100%)',
       }}
     >
-      <Stack spacing={1.25} height="100%">
+      <Stack
+        spacing={1.25}
+        height="100%"
+        alignItems={centered ? 'center' : undefined}
+      >
         <Typography variant="h6" color="text.secondary" fontWeight={600}>
           {title}
         </Typography>
@@ -35,12 +40,10 @@ export default function MetricCard({ title, value, caption, chart }: MetricCardP
         >
           {value}
         </Typography>
-        {chart ? <Box sx={{ pt: 0.5 }}>{chart}</Box> : null}
-        {caption ? (
-          <Typography variant="body2" color="text.secondary">
-            {caption}
-          </Typography>
-        ) : null}
+        <Typography variant="h6" color="text.secondary" fontWeight={400}>
+          {caption}{" "}
+        </Typography>
+        {chart ? <Box sx={{ pt: 0.5, width: '100%', mt: 'auto' }}>{chart}</Box> : null}
       </Stack>
     </Paper>
   );

@@ -1,28 +1,29 @@
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import {
-  Alert,
-  AppBar,
-  Box,
-  Button,
-  Container,
-  IconButton,
-  LinearProgress,
-  Stack,
-  Toolbar,
-  Tooltip,
-  Typography,
+    Alert,
+    AppBar,
+    Box,
+    Button,
+    Container,
+    IconButton,
+    LinearProgress,
+    Stack,
+    Toolbar,
+    Tooltip,
+    Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
-import { fetchPresence, fetchPresenceHourlyDiff, putPresence } from './api/presence';
+import { fetchPresence, fetchPresenceHourlyDiff, putPresence, putPresenceSettings } from './api/presence';
 import DashboardPage from './pages/DashboardPage';
+import RilevamentoPage from './pages/RilevamentoPage';
 import SettingsPage from './pages/SettingsPage';
 import {
-  DEFAULT_DASHBOARD_DATA,
-  type DashboardData,
-  type DashboardMetrics,
-  type HourlyDiffDataPoint,
+    DEFAULT_DASHBOARD_DATA,
+    type DashboardData,
+    type DashboardMetrics,
+    type HourlyDiffDataPoint,
 } from './types';
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 5000;
@@ -151,6 +152,21 @@ export default function App() {
     }
   };
 
+  const handleSaveSettings = async (nextData: DashboardData) => {
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const savedData = await putPresenceSettings(nextData);
+      setData(savedData);
+    } catch {
+      setSaveError('Impossibile salvare i dati sul server.');
+      throw new Error('Save failed');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const toggleFullscreen = async () => {
     try {
       if (document.fullscreenElement) {
@@ -184,6 +200,14 @@ export default function App() {
               color="primary"
             >
               Dashboard
+            </Button>
+            <Button
+              component={Link}
+              to="/rilevamento"
+              variant={location.pathname === '/rilevamento' ? 'contained' : 'outlined'}
+              color="primary"
+            >
+              Rilevamento
             </Button>
             <Button
               component={Link}
@@ -232,12 +256,22 @@ export default function App() {
             )}
           />
           <Route
+            path="/rilevamento"
+            element={(
+              <RilevamentoPage
+                initialData={data}
+                isSaving={isSaving}
+                onSave={handleSave}
+              />
+            )}
+          />
+          <Route
             path="/impostazioni"
             element={(
               <SettingsPage
                 initialData={data}
                 isSaving={isSaving}
-                onSave={handleSave}
+                onSave={handleSaveSettings}
               />
             )}
           />

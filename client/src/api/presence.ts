@@ -47,14 +47,29 @@ export async function fetchPresence(): Promise<DashboardData> {
 
 export async function putPresence(data: DashboardData): Promise<DashboardData> {
   const payload = {
-    totalElectors: data.totalElectors,
     votersAL: data.votersAL,
     votersMZ: data.votersMZ,
+  };
+
+  const response = await fetch(`${API_BASE_PATH}/presence`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+}
+
+export async function putPresenceSettings(data: DashboardData): Promise<DashboardData> {
+  const payload = {
+    totalElectors: data.totalElectors,
     comune: data.comune,
     sezione: data.sezione,
   };
 
-  const response = await fetch(`${API_BASE_PATH}/presence`, {
+  const response = await fetch(`${API_BASE_PATH}/presence/settings`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',

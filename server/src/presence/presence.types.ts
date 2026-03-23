@@ -23,6 +23,8 @@ export interface PresenceHourlyDiffEntry {
 }
 
 export type PresenceUpdateInput = Omit<PresenceData, 'lastUpdatedAt'>;
+export type PresenceRilevamentoInput = Pick<PresenceData, 'votersAL' | 'votersMZ'>;
+export type PresenceSettingsInput = Pick<PresenceData, 'comune' | 'sezione' | 'totalElectors'>;
 
 export const DEFAULT_PRESENCE_DATA: PresenceData = {
   totalElectors: 1000,

@@ -2,7 +2,7 @@ import { Alert, Button, Paper, Stack, TextField, Typography } from '@mui/materia
 import { useEffect, useState } from 'react';
 import type { DashboardData } from '../types';
 
-interface SettingsPageProps {
+interface RilevamentoPageProps {
   initialData: DashboardData;
   isSaving: boolean;
   onSave: (nextData: DashboardData) => Promise<void>;
@@ -13,16 +13,14 @@ function sanitizeNumber(value: string): number {
   return Number.isFinite(numericValue) && numericValue >= 0 ? Math.floor(numericValue) : 0;
 }
 
-export default function SettingsPage({ initialData, isSaving, onSave }: SettingsPageProps) {
-  const [comune, setComune] = useState(() => initialData.comune);
-  const [sezione, setSezione] = useState(() => initialData.sezione);
-  const [totalElectors, setTotalElectors] = useState(() => String(initialData.totalElectors));
+export default function RilevamentoPage({ initialData, isSaving, onSave }: RilevamentoPageProps) {
+  const [votersAL, setVotersAL] = useState(() => String(initialData.votersAL));
+  const [votersMZ, setVotersMZ] = useState(() => String(initialData.votersMZ));
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setComune(initialData.comune);
-    setSezione(initialData.sezione);
-    setTotalElectors(String(initialData.totalElectors));
+    setVotersAL(String(initialData.votersAL));
+    setVotersMZ(String(initialData.votersMZ));
   }, [initialData]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -31,9 +29,8 @@ export default function SettingsPage({ initialData, isSaving, onSave }: Settings
     try {
       await onSave({
         ...initialData,
-        comune,
-        sezione,
-        totalElectors: sanitizeNumber(totalElectors),
+        votersAL: sanitizeNumber(votersAL),
+        votersMZ: sanitizeNumber(votersMZ),
       });
 
       setSaved(true);
@@ -59,30 +56,24 @@ export default function SettingsPage({ initialData, isSaving, onSave }: Settings
     >
       <Stack spacing={2.5}>
         <Typography variant="h4" color="primary.main" fontWeight={800}>
-          Impostazioni
+          Rilevamento
         </Typography>
 
         <TextField
-          label="Comune"
-          value={comune}
-          onChange={(event) => setComune(event.target.value)}
-          fullWidth
-          required
-        />
-
-        <TextField
-          label="Sezione / Seggio"
-          value={sezione}
-          onChange={(event) => setSezione(event.target.value)}
-          fullWidth
-          required
-        />
-
-        <TextField
-          label="Totale elettori"
+          label="Votanti A-L"
           type="number"
-          value={totalElectors}
-          onChange={(event) => setTotalElectors(event.target.value)}
+          value={votersAL}
+          onChange={(event) => setVotersAL(event.target.value)}
+          fullWidth
+          inputProps={{ min: 0 }}
+          required
+        />
+
+        <TextField
+          label="Votanti M-Z"
+          type="number"
+          value={votersMZ}
+          onChange={(event) => setVotersMZ(event.target.value)}
           fullWidth
           inputProps={{ min: 0 }}
           required

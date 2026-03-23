@@ -1,7 +1,17 @@
 import { Typography } from '@mui/material';
 import type { HourlyDiffDataPoint } from '../../types';
 
-export default function MiniHourlyDiffChart({ data }: { data: HourlyDiffDataPoint[] }) {
+interface MiniHourlyDiffChartProps {
+  data: HourlyDiffDataPoint[];
+  mode?: 'diff' | 'total' | 'percentage';
+  totalElectors?: number;
+}
+
+export default function MiniHourlyDiffChart({
+  data,
+  mode = 'diff',
+  totalElectors,
+}: MiniHourlyDiffChartProps) {
   if (data.length === 0) {
     return (
       <Typography variant="caption" color="text.secondary">
@@ -10,40 +20,92 @@ export default function MiniHourlyDiffChart({ data }: { data: HourlyDiffDataPoin
     );
   }
 
-  const values = data.map((entry) => Math.max(0, entry.diffFromPreviousHour));
+  const values = data.map((entry) => {
+    if (mode === 'percentage') {
+      if (!totalElectors || totalElectors <= 0) {
+        return 0;
+      }
+
+      return Math.max(0, Math.round((entry.recordedTotal / totalElectors) * 100));
+    }
+
+    if (mode === 'total') {
+      return Math.max(0, entry.recordedTotal);
+    }
+
+    return Math.max(0, entry.diffFromPreviousHour);
+  });
   const maxValue = Math.max(...values, 1);
+
+  const labelFontSize = 10;
   const padding = 8;
-  const chartHeight = 104;
-  const barGap = 2;
-  const chartWidth = Math.max(220, values.length * 8 + padding * 2);
+  const topLabelArea = 16;
+  const bottomLabelArea = 16;
+  const barAreaHeight = 72;
+  const innerBarPadding = 4;
+  const barGap = 3;
+  const chartHeight = topLabelArea + barAreaHeight + bottomLabelArea;
+  const chartWidth = Math.max(220, values.length * 22 + padding * 2);
   const innerWidth = chartWidth - padding * 2;
   const barWidth = (innerWidth - barGap * (values.length - 1)) / values.length;
+
+  const barAreaBottom = topLabelArea + barAreaHeight;
+  const maxBarHeight = barAreaHeight - innerBarPadding * 2;
 
   return (
     <svg
       viewBox={`0 0 ${chartWidth} ${chartHeight}`}
       width="100%"
-      height="104"
       role="img"
-      aria-label="Andamento orario votanti"
-      preserveAspectRatio="none"
+      aria-label={
+        mode === 'percentage'
+          ? 'Percentuale votanti per ora'
+          : mode === 'total'
+            ? 'Totale votanti per ora'
+            : 'Andamento orario votanti'
+      }
     >
       {values.map((value, index) => {
-        const normalizedHeight = (value / maxValue) * (chartHeight - padding * 2);
+        const normalizedHeight = (value / maxValue) * maxBarHeight;
         const height = Math.max(2, normalizedHeight);
         const x = padding + index * (barWidth + barGap);
-        const y = chartHeight - padding - height;
+        const y = barAreaBottom - innerBarPadding - height;
+        const barCenterX = x + barWidth / 2;
+        const hourLabel = data[index].hourKey.split('-')[1] ?? '';
 
         return (
-          <rect
-            key={data[index].hourKey}
-            x={x}
-            y={y}
-            width={barWidth}
-            height={height}
-            rx={1.5}
-            fill="rgba(76, 201, 240, 0.85)"
-          />
+          <g key={data[index].hourKey}>
+            {value > 0 && (
+              <text
+                x={barCenterX}
+                y={y - 2}
+                textAnchor="middle"
+                dominantBaseline="auto"
+                fontSize={labelFontSize}
+                fill="rgba(76, 201, 240, 1)"
+              >
+                {value}
+              </text>
+            )}
+            <rect
+              x={x}
+              y={y}
+              width={barWidth}
+              height={height}
+              rx={1.5}
+              fill="rgba(76, 201, 240, 0.85)"
+            />
+            <text
+              x={barCenterX}
+              y={barAreaBottom + innerBarPadding}
+              textAnchor="middle"
+              dominantBaseline="hanging"
+              fontSize={labelFontSize}
+              fill="rgba(255, 255, 255, 0.45)"
+            >
+              {hourLabel}
+            </text>
+          </g>
         );
       })}
     </svg>

@@ -27,6 +27,8 @@ export default function DashboardPage({
   lastUpdatedAt,
   hourlyDiffData,
 }: DashboardPageProps) {
+  const remainingElectors = totalElectors - total;
+
   return (
     <Stack spacing={3} sx={{ minHeight: { xs: 'auto', md: 'calc(100vh - 110px)' } }}>
       <Stack
@@ -72,7 +74,9 @@ export default function DashboardPage({
           <MetricCard
             title="Percentuale"
             value={`${percentage.toFixed(2)}%`}
-            caption={`su ${totalElectors.toLocaleString('it-IT')} elettori`}
+            chart={<MiniHourlyDiffChart data={hourlyDiffData} mode="percentage" totalElectors={totalElectors} />}
+            caption={`su ${totalElectors.toLocaleString('it-IT')} elettori (rimanenti: ${remainingElectors.toLocaleString('it-IT')})`}
+            centered
           />
         </Grid>
       </Grid>

@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Put } from '@nestjs/common';
 import { UpdatePresenceDto } from './dto/update-presence.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { PresenceService } from './presence.service';
 
 @Controller('presence')
@@ -24,5 +25,10 @@ export class PresenceController {
   @Put()
   updatePresence(@Body() body: UpdatePresenceDto) {
     return this.presenceService.updatePresence(body);
+  }
+
+  @Put('settings')
+  updateSettings(@Body() body: UpdateSettingsDto) {
+    return this.presenceService.updateSettings(body);
   }
 }

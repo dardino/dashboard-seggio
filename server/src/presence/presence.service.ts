@@ -3,11 +3,12 @@ import { promises as fs } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
 import {
-  DEFAULT_PRESENCE_DATA,
-  type PresenceData,
-  type PresenceHistoryEntry,
-  type PresenceHourlyDiffEntry,
-  type PresenceUpdateInput,
+    DEFAULT_PRESENCE_DATA,
+    type PresenceData,
+    type PresenceHistoryEntry,
+    type PresenceHourlyDiffEntry,
+    type PresenceRilevamentoInput,
+    type PresenceSettingsInput,
 } from './presence.types';
 
 @Injectable()
@@ -102,7 +103,8 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
     };
   }
 
-  async updatePresence(data: PresenceUpdateInput): Promise<PresenceData> {
+  async updatePresence(data: PresenceRilevamentoInput): Promise<PresenceData> {
+    const current = await this.getPresence();
     const recordedAt = new Date().toISOString();
 
     this.database.run(
@@ -110,19 +112,16 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
         INSERT INTO presence (id, totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt)
         VALUES (1, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
-          totalElectors = excluded.totalElectors,
           votersAL = excluded.votersAL,
           votersMZ = excluded.votersMZ,
-          comune = excluded.comune,
-          sezione = excluded.sezione,
           lastUpdatedAt = excluded.lastUpdatedAt
       `,
       [
-        data.totalElectors,
+        current.totalElectors,
         data.votersAL,
         data.votersMZ,
-        data.comune,
-        data.sezione,
+        current.comune,
+        current.sezione,
         recordedAt,
       ],
     );
@@ -134,20 +133,40 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
       `,
       [
         recordedAt,
-        data.totalElectors,
+        current.totalElectors,
         data.votersAL,
         data.votersMZ,
-        data.comune,
-        data.sezione,
+        current.comune,
+        current.sezione,
       ],
     );
 
     await this.persist();
 
     return {
-      ...data,
+      ...current,
+      votersAL: data.votersAL,
+      votersMZ: data.votersMZ,
       lastUpdatedAt: recordedAt,
     };
+  }
+
+  async updateSettings(data: PresenceSettingsInput): Promise<PresenceData> {
+    this.database.run(
+      `
+        INSERT INTO presence (id, totalElectors, votersAL, votersMZ, comune, sezione)
+        VALUES (1, ?, 0, 0, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          totalElectors = excluded.totalElectors,
+          comune = excluded.comune,
+          sezione = excluded.sezione
+      `,
+      [data.totalElectors, data.comune, data.sezione],
+    );
+
+    await this.persist();
+
+    return this.getPresence();
   }
 
   async getPresenceHistory(): Promise<PresenceHistoryEntry[]> {
@@ -200,6 +219,10 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
         continue;
       }
 
+      if (this.isPollingClosedHour(date)) {
+        continue;
+      }
+
       const hourStart = new Date(date);
       hourStart.setMinutes(0, 0, 0);
       const hourTs = hourStart.getTime();
@@ -229,6 +252,10 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
     });
 
     for (let hour = firstHour + oneHourMs; hour <= lastHour; hour += oneHourMs) {
+      if (this.isPollingClosedHour(new Date(hour))) {
+        continue;
+      }
+
       const hasReading = byHour.has(hour);
       const currentTotal = hasReading ? (byHour.get(hour) ?? previousTotal) : previousTotal;
       const diffFromPreviousHour = hasReading ? Math.max(0, currentTotal - previousTotal) : 0;
@@ -274,5 +301,11 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
     const hour = String(date.getHours()).padStart(2, '0');
 
     return `${day}${month}${year}-${hour}`;
+  }
+
+  private isPollingClosedHour(date: Date): boolean {
+    const hour = date.getHours();
+
+    return hour >= 0 && hour < 7;
   }
 }
