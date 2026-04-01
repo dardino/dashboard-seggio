@@ -133,7 +133,8 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
 
       if (newFirstDate !== oldFirstDate) {
         const progressivo = this.nextProgressivo(newFirstDate);
-        const newFileName = `consultazione_${newFirstDate}_${progressivo}.sqlite`;
+        const suffix = entry.consultation.archived ? '.sqlite.bak' : '.sqlite';
+        const newFileName = `consultazione_${newFirstDate}_${progressivo}${suffix}`;
         const newFilePath = resolve(this.dataDir, newFileName);
 
         await fs.rename(entry.filePath, newFilePath);
