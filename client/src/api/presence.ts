@@ -40,18 +40,18 @@ function normalizeHourlyDiffData(value: unknown): HourlyDiffDataPoint[] {
   });
 }
 
-export async function fetchPresence(): Promise<DashboardData> {
-  const response = await fetch(`${API_BASE_PATH}/presence`);
+export async function fetchPresence(consultationId: string): Promise<DashboardData> {
+  const response = await fetch(`${API_BASE_PATH}/presence/${consultationId}`);
   return parseResponse(response);
 }
 
-export async function putPresence(data: DashboardData): Promise<DashboardData> {
+export async function putPresence(consultationId: string, data: DashboardData): Promise<DashboardData> {
   const payload = {
     votersAL: data.votersAL,
     votersMZ: data.votersMZ,
   };
 
-  const response = await fetch(`${API_BASE_PATH}/presence`, {
+  const response = await fetch(`${API_BASE_PATH}/presence/${consultationId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -62,14 +62,14 @@ export async function putPresence(data: DashboardData): Promise<DashboardData> {
   return parseResponse(response);
 }
 
-export async function putPresenceSettings(data: DashboardData): Promise<DashboardData> {
+export async function putPresenceSettings(consultationId: string, data: DashboardData): Promise<DashboardData> {
   const payload = {
     totalElectors: data.totalElectors,
     comune: data.comune,
     sezione: data.sezione,
   };
 
-  const response = await fetch(`${API_BASE_PATH}/presence/settings`, {
+  const response = await fetch(`${API_BASE_PATH}/presence/${consultationId}/settings`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -80,8 +80,8 @@ export async function putPresenceSettings(data: DashboardData): Promise<Dashboar
   return parseResponse(response);
 }
 
-export async function fetchPresenceHourlyDiff(): Promise<HourlyDiffDataPoint[]> {
-  const response = await fetch(`${API_BASE_PATH}/presence/history/hourly-diff`);
+export async function fetchPresenceHourlyDiff(consultationId: string): Promise<HourlyDiffDataPoint[]> {
+  const response = await fetch(`${API_BASE_PATH}/presence/${consultationId}/history/hourly-diff`);
 
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);

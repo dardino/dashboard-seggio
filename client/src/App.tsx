@@ -14,8 +14,9 @@ import {
     Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { fetchPresence, fetchPresenceHourlyDiff, putPresence, putPresenceSettings } from './api/presence';
+import ConsultationSelectPage from './pages/ConsultationSelectPage';
 import DashboardPage from './pages/DashboardPage';
 import RilevamentoPage from './pages/RilevamentoPage';
 import SettingsPage from './pages/SettingsPage';
@@ -28,7 +29,8 @@ import {
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 5000;
 
-export default function App() {
+function ConsultationApp() {
+  const { consultationId } = useParams<{ consultationId: string }>();
   const location = useLocation();
   const [data, setData] = useState<DashboardData>(DEFAULT_DASHBOARD_DATA);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +54,7 @@ export default function App() {
   }, []);
 
   async function loadPresence(options?: { silent?: boolean }) {
+    if (!consultationId) return;
     const silent = options?.silent ?? false;
 
     if (!silent) {
@@ -60,8 +63,8 @@ export default function App() {
 
     try {
       const [remoteData, remoteHourlyDiff] = await Promise.all([
-        fetchPresence(),
-        fetchPresenceHourlyDiff(),
+        fetchPresence(consultationId),
+        fetchPresenceHourlyDiff(consultationId),
       ]);
 
       setData(remoteData);
@@ -77,13 +80,15 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!consultationId) return;
+    const cid = consultationId;
     let ignore = false;
 
     async function loadData() {
       try {
         const [remoteData, remoteHourlyDiff] = await Promise.all([
-          fetchPresence(),
-          fetchPresenceHourlyDiff(),
+          fetchPresence(cid),
+          fetchPresenceHourlyDiff(cid),
         ]);
 
         if (!ignore) {
@@ -107,10 +112,12 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [consultationId]);
+
+  const isDashboardRoute = location.pathname === `/${consultationId}`;
 
   useEffect(() => {
-    if (location.pathname !== '/' || isSaving) {
+    if (!isDashboardRoute || isSaving) {
       return undefined;
     }
 
@@ -123,7 +130,7 @@ export default function App() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isSaving, location.pathname]);
+  }, [isSaving, isDashboardRoute, consultationId]);
 
   const computed = useMemo<DashboardMetrics>(() => {
     const total = data.votersAL + data.votersMZ;
@@ -136,13 +143,14 @@ export default function App() {
   }, [data]);
 
   const handleSave = async (nextData: DashboardData) => {
+    if (!consultationId) return;
     setIsSaving(true);
     setSaveError(null);
 
     try {
-      const savedData = await putPresence(nextData);
+      const savedData = await putPresence(consultationId, nextData);
       setData(savedData);
-      const remoteHourlyDiff = await fetchPresenceHourlyDiff();
+      const remoteHourlyDiff = await fetchPresenceHourlyDiff(consultationId);
       setHourlyDiffData(remoteHourlyDiff);
     } catch {
       setSaveError('Impossibile salvare i dati sul server.');
@@ -153,11 +161,12 @@ export default function App() {
   };
 
   const handleSaveSettings = async (nextData: DashboardData) => {
+    if (!consultationId) return;
     setIsSaving(true);
     setSaveError(null);
 
     try {
-      const savedData = await putPresenceSettings(nextData);
+      const savedData = await putPresenceSettings(consultationId, nextData);
       setData(savedData);
     } catch {
       setSaveError('Impossibile salvare i dati sul server.');
@@ -181,12 +190,7 @@ export default function App() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'radial-gradient(circle at 20% 10%, #1a2a45 0%, #0f1728 45%, #070c16 100%)',
-      }}
-    >
+    <>
       <AppBar position="static" color="transparent" elevation={0}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Typography variant="h6" color="primary.main" fontWeight={800}>
@@ -195,24 +199,24 @@ export default function App() {
           <Stack direction="row" spacing={1}>
             <Button
               component={Link}
-              to="/"
-              variant={location.pathname === '/' ? 'contained' : 'outlined'}
+              to={`/${consultationId}`}
+              variant={isDashboardRoute ? 'contained' : 'outlined'}
               color="primary"
             >
               Dashboard
             </Button>
             <Button
               component={Link}
-              to="/rilevamento"
-              variant={location.pathname === '/rilevamento' ? 'contained' : 'outlined'}
+              to={`/${consultationId}/rilevamento`}
+              variant={location.pathname === `/${consultationId}/rilevamento` ? 'contained' : 'outlined'}
               color="primary"
             >
               Rilevamento
             </Button>
             <Button
               component={Link}
-              to="/impostazioni"
-              variant={location.pathname === '/impostazioni' ? 'contained' : 'outlined'}
+              to={`/${consultationId}/impostazioni`}
+              variant={location.pathname === `/${consultationId}/impostazioni` ? 'contained' : 'outlined'}
               color="primary"
             >
               Impostazioni
@@ -238,46 +242,120 @@ export default function App() {
           {loadError ? <Alert severity="error">{loadError}</Alert> : null}
           {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
-        <Routes>
-          <Route
-            path="/"
-            element={(
-              <DashboardPage
-                votersAL={data.votersAL}
-                votersMZ={data.votersMZ}
-                total={computed.total}
-                percentage={computed.percentage}
-                totalElectors={data.totalElectors}
-                comune={data.comune}
-                sezione={data.sezione}
-                lastUpdatedAt={data.lastUpdatedAt}
-                hourlyDiffData={hourlyDiffData}
-              />
-            )}
-          />
-          <Route
-            path="/rilevamento"
-            element={(
-              <RilevamentoPage
-                initialData={data}
-                isSaving={isSaving}
-                onSave={handleSave}
-              />
-            )}
-          />
-          <Route
-            path="/impostazioni"
-            element={(
-              <SettingsPage
-                initialData={data}
-                isSaving={isSaving}
-                onSave={handleSaveSettings}
-              />
-            )}
-          />
-        </Routes>
+          <Routes>
+            <Route
+              path="/"
+              element={(
+                <DashboardPage
+                  votersAL={data.votersAL}
+                  votersMZ={data.votersMZ}
+                  total={computed.total}
+                  percentage={computed.percentage}
+                  totalElectors={data.totalElectors}
+                  comune={data.comune}
+                  sezione={data.sezione}
+                  lastUpdatedAt={data.lastUpdatedAt}
+                  hourlyDiffData={hourlyDiffData}
+                />
+              )}
+            />
+            <Route
+              path="/rilevamento"
+              element={(
+                <RilevamentoPage
+                  initialData={data}
+                  isSaving={isSaving}
+                  onSave={handleSave}
+                />
+              )}
+            />
+            <Route
+              path="/impostazioni"
+              element={(
+                <SettingsPage
+                  initialData={data}
+                  isSaving={isSaving}
+                  onSave={handleSaveSettings}
+                />
+              )}
+            />
+          </Routes>
         </Stack>
       </Container>
+    </>
+  );
+}
+
+export default function App() {
+  const location = useLocation();
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // Ignore browser-level fullscreen errors (permissions, unsupported state).
+    }
+  };
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    handleFullscreenChange();
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'radial-gradient(circle at 20% 10%, #1a2a45 0%, #0f1728 45%, #070c16 100%)',
+      }}
+    >
+      <Routes>
+        <Route
+          path="/"
+          element={(
+            <>
+              <AppBar position="static" color="transparent" elevation={0}>
+                <Toolbar sx={{ justifyContent: 'space-between' }}>
+                  <Typography variant="h6" color="primary.main" fontWeight={800}>
+                    Referendum 2026
+                  </Typography>
+                  <Tooltip title={isFullscreen ? 'Esci da fullscreen' : 'Vai in fullscreen'}>
+                    <IconButton
+                      color="primary"
+                      aria-label={isFullscreen ? 'Esci da fullscreen' : 'Vai in fullscreen'}
+                      onClick={() => {
+                        void toggleFullscreen();
+                      }}
+                    >
+                      {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                    </IconButton>
+                  </Tooltip>
+                </Toolbar>
+              </AppBar>
+              <Container maxWidth="xl" sx={{ py: 2 }}>
+                <ConsultationSelectPage />
+              </Container>
+            </>
+          )}
+        />
+        <Route path="/:consultationId/*" element={<ConsultationApp />} />
+      </Routes>
     </Box>
   );
 }
+
