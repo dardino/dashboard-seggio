@@ -94,7 +94,7 @@ export default function ConsultationSelectPage() {
                 }}
               >
                 <ListItemText
-                  primary={CONSULTATION_TYPE_LABELS[consultation.type] ?? consultation.type}
+                  primary={(consultation.titolo || CONSULTATION_TYPE_LABELS[consultation.type]) ?? consultation.type}
                   secondary={dateLabel}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />

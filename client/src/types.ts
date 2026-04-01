@@ -22,6 +22,7 @@ export interface BallotCard {
 
 export interface Consultation {
   id: string;
+  titolo: string;
   type: ConsultationType;
   labelAL: string;
   labelMZ: string;

@@ -13,7 +13,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { fetchPresence, fetchPresenceHourlyDiff, putPresence, putPresenceSettings } from './api/presence';
 import ConsultFormPage from './pages/ConsultFormPage';
@@ -287,6 +287,28 @@ function ConsultationApp() {
   );
 }
 
+function ConsultEditRoute() {
+  const [editTitle, setEditTitle] = useState<string>('Modifica consultazione');
+  const handleTitleLoaded = useCallback((t: string) => {
+    if (t) setEditTitle(t);
+  }, []);
+
+  return (
+    <>
+      <AppBar position="static" color="transparent" elevation={0}>
+        <Toolbar>
+          <Typography variant="h6" color="primary.main" fontWeight={800}>
+            {editTitle}
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="xl" sx={{ py: 2 }}>
+        <ConsultFormPage onTitleLoaded={handleTitleLoaded} />
+      </Container>
+    </>
+  );
+}
+
 export default function App() {
   const location = useLocation();
 
@@ -362,7 +384,7 @@ export default function App() {
               <AppBar position="static" color="transparent" elevation={0}>
                 <Toolbar>
                   <Typography variant="h6" color="primary.main" fontWeight={800}>
-                    Referendum 2026
+                    Crea nuova consultazione
                   </Typography>
                 </Toolbar>
               </AppBar>
@@ -374,20 +396,7 @@ export default function App() {
         />
         <Route
           path="/consults/:id"
-          element={(
-            <>
-              <AppBar position="static" color="transparent" elevation={0}>
-                <Toolbar>
-                  <Typography variant="h6" color="primary.main" fontWeight={800}>
-                    Referendum 2026
-                  </Typography>
-                </Toolbar>
-              </AppBar>
-              <Container maxWidth="xl" sx={{ py: 2 }}>
-                <ConsultFormPage />
-              </Container>
-            </>
-          )}
+          element={<ConsultEditRoute />}
         />
         <Route path="/:consultationId/*" element={<ConsultationApp />} />
       </Routes>

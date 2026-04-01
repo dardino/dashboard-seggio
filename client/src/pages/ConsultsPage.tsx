@@ -148,6 +148,7 @@ export default function ConsultsPage() {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell>Titolo</TableCell>
                 <TableCell>Tipo</TableCell>
                 <TableCell>Label AL</TableCell>
                 <TableCell>Label MZ</TableCell>
@@ -160,13 +161,14 @@ export default function ConsultsPage() {
             <TableBody>
               {consultations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography color="text.secondary">Nessuna consultazione trovata</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 consultations.map((c) => (
                   <TableRow key={c.id} sx={{ opacity: c.archived ? 0.6 : 1 }}>
+                    <TableCell>{c.titolo || '—'}</TableCell>
                     <TableCell>{typeLabels[c.type]}</TableCell>
                     <TableCell>{c.labelAL}</TableCell>
                     <TableCell>{c.labelMZ}</TableCell>

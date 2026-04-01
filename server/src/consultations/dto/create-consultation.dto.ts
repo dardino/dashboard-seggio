@@ -36,6 +36,10 @@ export class VotingSessionDto {
 const CONSULTATION_TYPES: ConsultationType[] = ['politiche', 'amministrative', 'referendarie'];
 
 export class CreateConsultationDto {
+  @IsString()
+  @IsNotEmpty()
+  titolo!: string;
+
   @IsIn(CONSULTATION_TYPES)
   type!: ConsultationType;
 

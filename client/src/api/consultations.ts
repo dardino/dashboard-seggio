@@ -27,6 +27,7 @@ export async function fetchConsultation(id: string): Promise<Consultation> {
 }
 
 export interface ConsultationPayload {
+  titolo: string;
   type: ConsultationType;
   labelAL?: string;
   labelMZ?: string;

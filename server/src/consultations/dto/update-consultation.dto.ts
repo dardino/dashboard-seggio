@@ -37,6 +37,11 @@ const CONSULTATION_TYPES: ConsultationType[] = ['politiche', 'amministrative', '
 
 export class UpdateConsultationDto {
   @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  titolo?: string;
+
+  @IsOptional()
   @IsIn(CONSULTATION_TYPES)
   type?: ConsultationType;
 

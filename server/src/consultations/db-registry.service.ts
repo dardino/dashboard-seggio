@@ -9,10 +9,12 @@ import {
   type ConsultationType,
   DEFAULT_LABEL_AL,
   DEFAULT_LABEL_MZ,
+  DEFAULT_TITOLO,
   type VotingSession,
 } from './consultation.types';
 
 export interface ConsultationCreateInput {
+  titolo: string;
   type: ConsultationType;
   labelAL?: string;
   labelMZ?: string;
@@ -21,6 +23,7 @@ export interface ConsultationCreateInput {
 }
 
 export interface ConsultationUpdateInput {
+  titolo?: string;
   type?: ConsultationType;
   labelAL?: string;
   labelMZ?: string;
@@ -93,6 +96,7 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
 
     const consultation: Consultation = {
       id,
+      titolo: input.titolo ?? DEFAULT_TITOLO,
       type: input.type,
       labelAL: input.labelAL ?? DEFAULT_LABEL_AL,
       labelMZ: input.labelMZ ?? DEFAULT_LABEL_MZ,
@@ -118,6 +122,7 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
     const now = new Date().toISOString();
     const updated: Consultation = {
       ...entry.consultation,
+      titolo: input.titolo ?? entry.consultation.titolo,
       type: input.type ?? entry.consultation.type,
       labelAL: input.labelAL ?? entry.consultation.labelAL,
       labelMZ: input.labelMZ ?? entry.consultation.labelMZ,
@@ -238,6 +243,7 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
         const filePath = resolve(this.dataDir, fileName);
         const fileBuffer = await fs.readFile(filePath);
         const database = new this.sql.Database(fileBuffer);
+        this.migrateSchema(database);
         const consultation = this.readConsultationRow(database, fileName);
 
         if (consultation) {
@@ -257,6 +263,7 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
     database.exec(`
       CREATE TABLE IF NOT EXISTS consultation (
         id TEXT PRIMARY KEY,
+        titolo TEXT NOT NULL DEFAULT '',
         type TEXT NOT NULL,
         labelAL TEXT NOT NULL,
         labelMZ TEXT NOT NULL,
@@ -296,12 +303,21 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
     `);
   }
 
+  private migrateSchema(database: Database): void {
+    try {
+      database.exec(`ALTER TABLE consultation ADD COLUMN titolo TEXT NOT NULL DEFAULT ''`);
+    } catch {
+      // Column already exists – ignore
+    }
+  }
+
   private writeConsultationRow(database: Database, consultation: Consultation): void {
     database.run(
       `
-        INSERT INTO consultation (id, type, labelAL, labelMZ, ballotCards, votingSessions, archived, createdAt, updatedAt, fileDbName)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO consultation (id, titolo, type, labelAL, labelMZ, ballotCards, votingSessions, archived, createdAt, updatedAt, fileDbName)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
+          titolo = excluded.titolo,
           type = excluded.type,
           labelAL = excluded.labelAL,
           labelMZ = excluded.labelMZ,
@@ -313,6 +329,7 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
       `,
       [
         consultation.id,
+        consultation.titolo,
         consultation.type,
         consultation.labelAL,
         consultation.labelMZ,
@@ -329,18 +346,19 @@ export class DbRegistryService implements OnModuleInit, OnApplicationShutdown {
   private readConsultationRow(database: Database, fileName: string): Consultation | null {
     try {
       const result = database.exec(
-        'SELECT id, type, labelAL, labelMZ, ballotCards, votingSessions, archived, createdAt, updatedAt, fileDbName FROM consultation LIMIT 1',
+        'SELECT id, titolo, type, labelAL, labelMZ, ballotCards, votingSessions, archived, createdAt, updatedAt, fileDbName FROM consultation LIMIT 1',
       );
 
       if (result.length === 0 || result[0].values.length === 0) {
         return null;
       }
 
-      const [id, type, labelAL, labelMZ, ballotCardsJson, votingSessionsJson, archived, createdAt, updatedAt, fileDbName] =
-        result[0].values[0] as [string, string, string, string, string, string, number, string, string, string];
+      const [id, titolo, type, labelAL, labelMZ, ballotCardsJson, votingSessionsJson, archived, createdAt, updatedAt, fileDbName] =
+        result[0].values[0] as [string, string, string, string, string, string, string, number, string, string, string];
 
       return {
         id,
+        titolo: titolo ?? DEFAULT_TITOLO,
         type: type as ConsultationType,
         labelAL,
         labelMZ,

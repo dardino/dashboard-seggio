@@ -52,7 +52,7 @@ function toIso(datetimeLocal: string): string {
   return datetimeLocal.length === 16 ? `${datetimeLocal}:00` : datetimeLocal;
 }
 
-export default function ConsultFormPage() {
+export default function ConsultFormPage({ onTitleLoaded }: { onTitleLoaded?: (title: string) => void }) {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
@@ -64,6 +64,7 @@ export default function ConsultFormPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [type, setType] = useState<ConsultationType | ''>('');
+  const [titolo, setTitolo] = useState('');
   const [labelAL, setLabelAL] = useState('A-L');
   const [labelMZ, setLabelMZ] = useState('M-Z');
   const [votingSessions, setVotingSessions] = useState<VotingSession[]>([newVotingSession()]);
@@ -74,11 +75,13 @@ export default function ConsultFormPage() {
     setIsLoading(true);
     fetchConsultation(id)
       .then((c) => {
+        setTitolo(c.titolo);
         setType(c.type);
         setLabelAL(c.labelAL);
         setLabelMZ(c.labelMZ);
         setVotingSessions(c.votingSessions.length > 0 ? c.votingSessions : [newVotingSession()]);
         setBallotCards(c.ballotCards.length > 0 ? c.ballotCards : [newBallotCard()]);
+        onTitleLoaded?.(c.titolo);
       })
       .catch((err: unknown) => {
         setLoadError(err instanceof Error ? err.message : 'Errore durante il caricamento');
@@ -92,6 +95,9 @@ export default function ConsultFormPage() {
 
     if (!type) {
       errors.type = 'Il tipo è obbligatorio';
+    }
+    if (!titolo.trim()) {
+      errors.titolo = 'Il titolo è obbligatorio';
     }
     if (votingSessions.length === 0) {
       errors.votingSessions = 'Almeno una sessione di voto è richiesta';
@@ -123,6 +129,7 @@ export default function ConsultFormPage() {
     setSaveError(null);
     try {
       const payload = {
+        titolo,
         type: type as ConsultationType,
         labelAL,
         labelMZ,
@@ -217,6 +224,16 @@ export default function ConsultFormPage() {
           </Select>
           {fieldErrors.type && <FormHelperText>{fieldErrors.type}</FormHelperText>}
         </FormControl>
+
+        <TextField
+          label="Titolo *"
+          value={titolo}
+          onChange={(e) => setTitolo(e.target.value)}
+          fullWidth
+          sx={{ mb: 2 }}
+          error={!!fieldErrors.titolo}
+          helperText={fieldErrors.titolo}
+        />
 
         <Box sx={{ display: 'flex', gap: 2 }}>
           <TextField
