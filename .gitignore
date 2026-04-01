@@ -6,4 +6,5 @@ client/dist/
 
 server/node_modules/
 server/dist/
-server/data/*.sqlite
+server/data/consultazione_*.sqlite
+server/data/consultazione_*.sqlite.bak

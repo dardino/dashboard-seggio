@@ -1,4 +1,5 @@
 export interface PresenceData {
+  consultationId: string;
   totalElectors: number;
   votersAL: number;
   votersMZ: number;
@@ -8,6 +9,7 @@ export interface PresenceData {
 }
 
 export interface PresenceHistoryEntry {
+  consultationId: string;
   recordedAt: string;
   totalElectors: number;
   votersAL: number;
@@ -26,7 +28,7 @@ export type PresenceUpdateInput = Omit<PresenceData, 'lastUpdatedAt'>;
 export type PresenceRilevamentoInput = Pick<PresenceData, 'votersAL' | 'votersMZ'>;
 export type PresenceSettingsInput = Pick<PresenceData, 'comune' | 'sezione' | 'totalElectors'>;
 
-export const DEFAULT_PRESENCE_DATA: PresenceData = {
+export const DEFAULT_PRESENCE_DATA: Omit<PresenceData, 'consultationId'> = {
   totalElectors: 1000,
   votersAL: 0,
   votersMZ: 0,
