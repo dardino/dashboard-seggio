@@ -13,10 +13,11 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
-import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { fetchPresence, fetchPresenceHourlyDiff, putPresence, putPresenceSettings } from './api/presence';
-import ConsultationSelectPage from './pages/ConsultationSelectPage';
+import ConsultFormPage from './pages/ConsultFormPage';
+import ConsultsPage from './pages/ConsultsPage';
 import DashboardPage from './pages/DashboardPage';
 import RilevamentoPage from './pages/RilevamentoPage';
 import SettingsPage from './pages/SettingsPage';
@@ -286,6 +287,28 @@ function ConsultationApp() {
   );
 }
 
+function ConsultEditRoute() {
+  const [editTitle, setEditTitle] = useState<string>('Modifica consultazione');
+  const handleTitleLoaded = useCallback((t: string) => {
+    if (t) setEditTitle(t);
+  }, []);
+
+  return (
+    <>
+      <AppBar position="static" color="transparent" elevation={0}>
+        <Toolbar>
+          <Typography variant="h6" color="primary.main" fontWeight={800}>
+            {editTitle}
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="xl" sx={{ py: 2 }}>
+        <ConsultFormPage onTitleLoaded={handleTitleLoaded} />
+      </Container>
+    </>
+  );
+}
+
 export default function App() {
   const location = useLocation();
 
@@ -325,8 +348,9 @@ export default function App() {
       }}
     >
       <Routes>
+        <Route path="/" element={<Navigate to="/consults" replace />} />
         <Route
-          path="/"
+          path="/consults"
           element={(
             <>
               <AppBar position="static" color="transparent" elevation={0}>
@@ -348,10 +372,31 @@ export default function App() {
                 </Toolbar>
               </AppBar>
               <Container maxWidth="xl" sx={{ py: 2 }}>
-                <ConsultationSelectPage />
+                <ConsultsPage />
               </Container>
             </>
           )}
+        />
+        <Route
+          path="/consults/new"
+          element={(
+            <>
+              <AppBar position="static" color="transparent" elevation={0}>
+                <Toolbar>
+                  <Typography variant="h6" color="primary.main" fontWeight={800}>
+                    Crea nuova consultazione
+                  </Typography>
+                </Toolbar>
+              </AppBar>
+              <Container maxWidth="xl" sx={{ py: 2 }}>
+                <ConsultFormPage />
+              </Container>
+            </>
+          )}
+        />
+        <Route
+          path="/consults/:id"
+          element={<ConsultEditRoute />}
         />
         <Route path="/:consultationId/*" element={<ConsultationApp />} />
       </Routes>

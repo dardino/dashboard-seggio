@@ -13,6 +13,7 @@ export interface BallotCard {
 
 export interface Consultation {
   id: string;                        // uuid
+  titolo: string;                    // human-readable title
   type: ConsultationType;
   labelAL: string;                   // default "A-L"
   labelMZ: string;                   // default "M-Z"
@@ -26,3 +27,4 @@ export interface Consultation {
 
 export const DEFAULT_LABEL_AL = 'A-L';
 export const DEFAULT_LABEL_MZ = 'M-Z';
+export const DEFAULT_TITOLO = '';
