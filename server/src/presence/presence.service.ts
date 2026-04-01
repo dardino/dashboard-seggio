@@ -1,90 +1,36 @@
-import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
-import { promises as fs } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import type { Database } from 'sql.js';
+import { DbRegistryService } from '../consultations/db-registry.service';
 import {
-    DEFAULT_PRESENCE_DATA,
-    type PresenceData,
-    type PresenceHistoryEntry,
-    type PresenceHourlyDiffEntry,
-    type PresenceRilevamentoInput,
-    type PresenceSettingsInput,
+  DEFAULT_PRESENCE_DATA,
+  type PresenceData,
+  type PresenceHistoryEntry,
+  type PresenceHourlyDiffEntry,
+  type PresenceRilevamentoInput,
+  type PresenceSettingsInput,
 } from './presence.types';
 
 @Injectable()
-export class PresenceService implements OnModuleInit, OnApplicationShutdown {
-  private database!: Database;
-  private sql!: SqlJsStatic;
-  private readonly databasePath = resolve(__dirname, '..', '..', 'data', 'referendum.sqlite');
+export class PresenceService implements OnModuleInit {
+  constructor(private readonly dbRegistry: DbRegistryService) {}
 
-  async onModuleInit() {
-    this.sql = await initSqlJs({
-      locateFile: () => require.resolve('sql.js/dist/sql-wasm.wasm'),
-    });
-
-    await fs.mkdir(dirname(this.databasePath), { recursive: true });
-
-    try {
-      const fileBuffer = await fs.readFile(this.databasePath);
-      this.database = new this.sql.Database(fileBuffer);
-    } catch (error) {
-      const fileNotFound =
-        error instanceof Error && 'code' in error && error.code === 'ENOENT';
-
-      if (!fileNotFound) {
-        throw error;
-      }
-
-      this.database = new this.sql.Database();
-    }
-
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS presence (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        totalElectors INTEGER NOT NULL,
-        votersAL INTEGER NOT NULL,
-        votersMZ INTEGER NOT NULL,
-        comune TEXT NOT NULL,
-        sezione TEXT NOT NULL,
-        lastUpdatedAt TEXT
-      )
-    `);
-
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS presence_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        recordedAt TEXT NOT NULL,
-        totalElectors INTEGER NOT NULL,
-        votersAL INTEGER NOT NULL,
-        votersMZ INTEGER NOT NULL,
-        comune TEXT NOT NULL,
-        sezione TEXT NOT NULL
-      )
-    `);
-
-    this.ensureColumn('comune', "TEXT NOT NULL DEFAULT 'San Giuliano Milanese'");
-    this.ensureColumn('sezione', "TEXT NOT NULL DEFAULT 'Seggio 6'");
-    this.ensureColumn('lastUpdatedAt', 'TEXT');
-
-    await this.persist();
+  async onModuleInit(): Promise<void> {
+    // Database initialisation is handled by DbRegistryService.
   }
 
-  async onApplicationShutdown() {
-    if (this.database) {
-      this.database.close();
-    }
-  }
+  async getPresence(consultationId: string): Promise<PresenceData> {
+    const db = this.requireDatabase(consultationId);
 
-  async getPresence(): Promise<PresenceData> {
-    const result = this.database.exec(
-      'SELECT totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt FROM presence WHERE id = 1',
+    const result = db.exec(
+      'SELECT consultationId, totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt FROM presence WHERE id = 1',
     );
 
-    if (result.length === 0) {
-      return DEFAULT_PRESENCE_DATA;
+    if (result.length === 0 || result[0].values.length === 0) {
+      return { consultationId, ...DEFAULT_PRESENCE_DATA };
     }
 
-    const [totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt] = result[0].values[0] as [
+    const [cid, totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt] = result[0].values[0] as [
+      string,
       number,
       number,
       number,
@@ -93,89 +39,70 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
       string | null,
     ];
 
-    return {
-      totalElectors,
-      votersAL,
-      votersMZ,
-      comune,
-      sezione,
-      lastUpdatedAt,
-    };
+    return { consultationId: cid, totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt };
   }
 
-  async updatePresence(data: PresenceRilevamentoInput): Promise<PresenceData> {
-    const current = await this.getPresence();
+  async updatePresence(consultationId: string, data: PresenceRilevamentoInput): Promise<PresenceData> {
+    const db = this.requireDatabase(consultationId);
+    const current = await this.getPresence(consultationId);
     const recordedAt = new Date().toISOString();
 
-    this.database.run(
+    db.run(
       `
-        INSERT INTO presence (id, totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt)
-        VALUES (1, ?, ?, ?, ?, ?, ?)
+        INSERT INTO presence (id, consultationId, totalElectors, votersAL, votersMZ, comune, sezione, lastUpdatedAt)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           votersAL = excluded.votersAL,
           votersMZ = excluded.votersMZ,
           lastUpdatedAt = excluded.lastUpdatedAt
       `,
-      [
-        current.totalElectors,
-        data.votersAL,
-        data.votersMZ,
-        current.comune,
-        current.sezione,
-        recordedAt,
-      ],
+      [consultationId, current.totalElectors, data.votersAL, data.votersMZ, current.comune, current.sezione, recordedAt],
     );
 
-    this.database.run(
+    db.run(
       `
-        INSERT INTO presence_history (recordedAt, totalElectors, votersAL, votersMZ, comune, sezione)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO presence_history (consultationId, recordedAt, totalElectors, votersAL, votersMZ, comune, sezione)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
-      [
-        recordedAt,
-        current.totalElectors,
-        data.votersAL,
-        data.votersMZ,
-        current.comune,
-        current.sezione,
-      ],
+      [consultationId, recordedAt, current.totalElectors, data.votersAL, data.votersMZ, current.comune, current.sezione],
     );
 
-    await this.persist();
+    await this.dbRegistry.persistConsultationDatabase(consultationId);
 
-    return {
-      ...current,
-      votersAL: data.votersAL,
-      votersMZ: data.votersMZ,
-      lastUpdatedAt: recordedAt,
-    };
+    return { ...current, votersAL: data.votersAL, votersMZ: data.votersMZ, lastUpdatedAt: recordedAt };
   }
 
-  async updateSettings(data: PresenceSettingsInput): Promise<PresenceData> {
-    this.database.run(
+  async updateSettings(consultationId: string, data: PresenceSettingsInput): Promise<PresenceData> {
+    const db = this.requireDatabase(consultationId);
+
+    db.run(
       `
-        INSERT INTO presence (id, totalElectors, votersAL, votersMZ, comune, sezione)
-        VALUES (1, ?, 0, 0, ?, ?)
+        INSERT INTO presence (id, consultationId, totalElectors, votersAL, votersMZ, comune, sezione)
+        VALUES (1, ?, ?, 0, 0, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           totalElectors = excluded.totalElectors,
           comune = excluded.comune,
           sezione = excluded.sezione
       `,
-      [data.totalElectors, data.comune, data.sezione],
+      [consultationId, data.totalElectors, data.comune, data.sezione],
     );
 
-    await this.persist();
+    await this.dbRegistry.persistConsultationDatabase(consultationId);
 
-    return this.getPresence();
+    return this.getPresence(consultationId);
   }
 
-  async getPresenceHistory(): Promise<PresenceHistoryEntry[]> {
-    const result = this.database.exec(
+  async getPresenceHistory(consultationId: string): Promise<PresenceHistoryEntry[]> {
+    const db = this.requireDatabase(consultationId);
+
+    const result = db.exec(
       `
-        SELECT recordedAt, totalElectors, votersAL, votersMZ, comune, sezione
+        SELECT consultationId, recordedAt, totalElectors, votersAL, votersMZ, comune, sezione
         FROM presence_history
+        WHERE consultationId = ?
         ORDER BY recordedAt ASC
       `,
+      [consultationId],
     );
 
     if (result.length === 0) {
@@ -183,7 +110,8 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
     }
 
     return result[0].values.map((row) => {
-      const [recordedAt, totalElectors, votersAL, votersMZ, comune, sezione] = row as [
+      const [cid, recordedAt, totalElectors, votersAL, votersMZ, comune, sezione] = row as [
+        string,
         string,
         number,
         number,
@@ -192,19 +120,12 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
         string,
       ];
 
-      return {
-        recordedAt,
-        totalElectors,
-        votersAL,
-        votersMZ,
-        comune,
-        sezione,
-      };
+      return { consultationId: cid, recordedAt, totalElectors, votersAL, votersMZ, comune, sezione };
     });
   }
 
-  async getPresenceHourlyDiff(): Promise<PresenceHourlyDiffEntry[]> {
-    const history = await this.getPresenceHistory();
+  async getPresenceHourlyDiff(consultationId: string): Promise<PresenceHourlyDiffEntry[]> {
+    const history = await this.getPresenceHistory(consultationId);
 
     if (history.length === 0) {
       return [];
@@ -272,25 +193,12 @@ export class PresenceService implements OnModuleInit, OnApplicationShutdown {
     return response;
   }
 
-  private async persist() {
-    const databaseBytes = this.database.export();
-    await fs.writeFile(this.databasePath, Buffer.from(databaseBytes));
-  }
-
-  private ensureColumn(columnName: string, columnDefinition: string) {
-    const tableInfo = this.database.exec('PRAGMA table_info(presence)');
-
-    if (tableInfo.length === 0) {
-      return;
+  private requireDatabase(consultationId: string): Database {
+    const db = this.dbRegistry.getDatabase(consultationId);
+    if (!db) {
+      throw new NotFoundException(`Consultation ${consultationId} not found`);
     }
-
-    const existingColumns = new Set(
-      tableInfo[0].values.map((row) => String(row[1])),
-    );
-
-    if (!existingColumns.has(columnName)) {
-      this.database.exec(`ALTER TABLE presence ADD COLUMN ${columnName} ${columnDefinition}`);
-    }
+    return db;
   }
 
   private formatHourKey(timestampMs: number): string {
