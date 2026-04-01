@@ -3,6 +3,7 @@ import {
   IsHexColor,
   IsIn,
   IsISO8601,
+  IsNotEmpty,
   IsOptional,
   IsString,
   ValidateNested,
@@ -13,9 +14,11 @@ import { ConsultationType } from '../consultation.types';
 
 export class BallotCardDto {
   @IsString()
+  @IsNotEmpty()
   id!: string;
 
   @IsString()
+  @IsNotEmpty()
   label!: string;
 
   @IsHexColor()
